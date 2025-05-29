@@ -5,30 +5,28 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "build": "echo 'No build step required'",
+    "postinstall": "npm rebuild sqlite3 --build-from-source || echo 'SQLite3 rebuild fallback'"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   },
   "dependencies": {
-    "dotenv": "^16.3.1",
-    "ejs": "^3.1.9",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
-    "method-override": "^3.0.0",
     "passport": "^0.6.0",
-    "passport-facebook": "^3.0.0",
+    "passport-twitter": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
-    "passport-twitter": "^1.0.4",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "ejs": "^3.1.9",
+    "dotenv": "^16.3.1",
+    "method-override": "^3.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": [
-    "nodejs",
-    "express",
-    "sqlite",
-    "passport",
-    "oauth"
-  ],
-  "author": "Adrian",
+  "keywords": ["nodejs", "express", "sqlite", "passport", "oauth"],
+  "author": "Adrian Ochoa",
   "license": "MIT"
 }

@@ -84,46 +84,39 @@ passport.use(new TwitterStrategy({
   callbackURL: process.env.NODE_ENV === 'production' 
     ? "https://tu-app-name.onrender.com/auth/twitter/callback"
     : "http://localhost:3000/auth/twitter/callback"
-  // Removido includeEmail temporalmente para debugging
 }, async (token, tokenSecret, profile, done) => {
   try {
     console.log('Twitter OAuth Success!');
     console.log('Twitter Profile:', JSON.stringify(profile, null, 2));
     
-    db.get("SELECT * FROM users WHERE provider_id = ? AND provider = 'twitter'", 
-      [profile.id], (err, user) => {
-      if (err) {
-        console.error('Database error:', err);
-        return done(err);
-      }
+    const userQuery = await pool.query(
+      "SELECT * FROM users WHERE provider_id = $1 AND provider = 'twitter'", 
+      [profile.id]
+    );
+    
+    if (userQuery.rows.length > 0) {
+      console.log('Usuario existente encontrado:', userQuery.rows[0]);
+      return done(null, userQuery.rows[0]);
+    } else {
+      const newUser = {
+        provider_id: profile.id,
+        provider: 'twitter',
+        name: profile.displayName || profile.username || 'Twitter User',
+        email: null,
+        avatar: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null
+      };
       
-      if (user) {
-        console.log('Usuario existente encontrado:', user);
-        return done(null, user);
-      } else {
-        const newUser = {
-          provider_id: profile.id,
-          provider: 'twitter',
-          name: profile.displayName || profile.username || 'Twitter User',
-          email: null, // Twitter no siempre proporciona email
-          avatar: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null
-        };
-        
-        console.log('Creando nuevo usuario:', newUser);
-        
-        db.run("INSERT INTO users (provider_id, provider, name, email, avatar) VALUES (?, ?, ?, ?, ?)",
-          [newUser.provider_id, newUser.provider, newUser.name, newUser.email, newUser.avatar],
-          function(err) {
-            if (err) {
-              console.error('Error al crear usuario:', err);
-              return done(err);
-            }
-            newUser.id = this.lastID;
-            console.log('Usuario creado exitosamente:', newUser);
-            return done(null, newUser);
-          });
-      }
-    });
+      console.log('Creando nuevo usuario:', newUser);
+      
+      const insertResult = await pool.query(
+        "INSERT INTO users (provider_id, provider, name, email, avatar) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        [newUser.provider_id, newUser.provider, newUser.name, newUser.email, newUser.avatar]
+      );
+      
+      const createdUser = insertResult.rows[0];
+      console.log('Usuario creado exitosamente:', createdUser);
+      return done(null, createdUser);
+    }
   } catch (error) {
     console.error('Error en estrategia Twitter:', error);
     return done(error);
@@ -141,40 +134,34 @@ passport.use(new GoogleStrategy({
   try {
     console.log('Google Profile:', JSON.stringify(profile, null, 2));
     
-    db.get("SELECT * FROM users WHERE provider_id = ? AND provider = 'google'", 
-      [profile.id], (err, user) => {
-      if (err) {
-        console.error('Database error:', err);
-        return done(err);
-      }
+    const userQuery = await pool.query(
+      "SELECT * FROM users WHERE provider_id = $1 AND provider = 'google'", 
+      [profile.id]
+    );
+    
+    if (userQuery.rows.length > 0) {
+      console.log('Usuario existente encontrado:', userQuery.rows[0]);
+      return done(null, userQuery.rows[0]);
+    } else {
+      const newUser = {
+        provider_id: profile.id,
+        provider: 'google',
+        name: profile.displayName,
+        email: profile.emails && profile.emails.length > 0 ? profile.emails[0].value : null,
+        avatar: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null
+      };
       
-      if (user) {
-        console.log('Usuario existente encontrado:', user);
-        return done(null, user);
-      } else {
-        const newUser = {
-          provider_id: profile.id,
-          provider: 'google',
-          name: profile.displayName,
-          email: profile.emails && profile.emails.length > 0 ? profile.emails[0].value : null,
-          avatar: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null
-        };
-        
-        console.log('Creando nuevo usuario:', newUser);
-        
-        db.run("INSERT INTO users (provider_id, provider, name, email, avatar) VALUES (?, ?, ?, ?, ?)",
-          [newUser.provider_id, newUser.provider, newUser.name, newUser.email, newUser.avatar],
-          function(err) {
-            if (err) {
-              console.error('Error al crear usuario:', err);
-              return done(err);
-            }
-            newUser.id = this.lastID;
-            console.log('Usuario creado exitosamente:', newUser);
-            return done(null, newUser);
-          });
-      }
-    });
+      console.log('Creando nuevo usuario:', newUser);
+      
+      const insertResult = await pool.query(
+        "INSERT INTO users (provider_id, provider, name, email, avatar) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        [newUser.provider_id, newUser.provider, newUser.name, newUser.email, newUser.avatar]
+      );
+      
+      const createdUser = insertResult.rows[0];
+      console.log('Usuario creado exitosamente:', createdUser);
+      return done(null, createdUser);
+    }
   } catch (error) {
     console.error('Error en estrategia Google:', error);
     return done(error);
@@ -186,10 +173,13 @@ passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
-passport.deserializeUser((id, done) => {
-  db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
-    done(err, user);
-  });
+passport.deserializeUser(async (id, done) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+    done(null, result.rows[0]);
+  } catch (err) {
+    done(err);
+  }
 });
 
 // Middleware de autenticación
@@ -248,15 +238,17 @@ app.post('/logout', (req, res, next) => {
 });
 
 // Dashboard
-app.get('/dashboard', ensureAuthenticated, (req, res) => {
-  db.all("SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC", 
-    [req.user.id], (err, contacts) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error al obtener contactos');
-    }
-    res.render('dashboard', { user: req.user, contacts });
-  });
+app.get('/dashboard', ensureAuthenticated, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM contacts WHERE user_id = $1 ORDER BY created_at DESC", 
+      [req.user.id]
+    );
+    res.render('dashboard', { user: req.user, contacts: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al obtener contactos');
+  }
 });
 
 // Rutas de contactos
@@ -264,7 +256,7 @@ app.get('/contacts/new', ensureAuthenticated, (req, res) => {
   res.render('contact-form', { user: req.user, contact: null, action: 'crear' });
 });
 
-app.post('/contacts', ensureAuthenticated, (req, res) => {
+app.post('/contacts', ensureAuthenticated, async (req, res) => {
   const { nombre, apellido, email, telefono, empresa, direccion } = req.body;
   
   // Validación básica
@@ -272,73 +264,85 @@ app.post('/contacts', ensureAuthenticated, (req, res) => {
     return res.status(400).send('Nombre y apellido son obligatorios');
   }
   
-  db.run("INSERT INTO contacts (user_id, nombre, apellido, email, telefono, empresa, direccion) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [req.user.id, nombre.trim(), apellido.trim(), email || null, telefono || null, empresa || null, direccion || null],
-    function(err) {
-      if (err) {
-        console.error('Error al crear contacto:', err);
-        return res.status(500).send('Error al crear contacto');
-      }
-      console.log('Contacto creado con ID:', this.lastID);
-      res.redirect('/dashboard');
-    });
-});
-
-app.get('/contacts/:id/edit', ensureAuthenticated, (req, res) => {
-  const contactId = req.params.id;
-  
-  db.get("SELECT * FROM contacts WHERE id = ? AND user_id = ?", 
-    [contactId, req.user.id], (err, contact) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error al obtener contacto');
-    }
-    if (!contact) {
-      return res.status(404).send('Contacto no encontrado');
-    }
-    res.render('contact-form', { user: req.user, contact, action: 'editar' });
-  });
-});
-
-app.put('/contacts/:id', ensureAuthenticated, (req, res) => {
-  const contactId = req.params.id;
-  const { nombre, apellido, email, telefono, empresa, direccion } = req.body;
-  
-  // Validación básica
-  if (!nombre || !apellido) {
-    return res.status(400).send('Nombre y apellido son obligatorios');
-  }
-  
-  db.run("UPDATE contacts SET nombre = ?, apellido = ?, email = ?, telefono = ?, empresa = ?, direccion = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
-    [nombre.trim(), apellido.trim(), email || null, telefono || null, empresa || null, direccion || null, contactId, req.user.id],
-    function(err) {
-      if (err) {
-        console.error('Error al actualizar contacto:', err);
-        return res.status(500).send('Error al actualizar contacto');
-      }
-      if (this.changes === 0) {
-        return res.status(404).send('Contacto no encontrado');
-      }
-      console.log('Contacto actualizado, filas afectadas:', this.changes);
-      res.redirect('/dashboard');
-    });
-});
-
-app.delete('/contacts/:id', ensureAuthenticated, (req, res) => {
-  const contactId = req.params.id;
-  
-  db.run("DELETE FROM contacts WHERE id = ? AND user_id = ?", 
-    [contactId, req.user.id], function(err) {
-    if (err) {
-      console.error('Error al eliminar contacto:', err);
-      return res.status(500).send('Error al eliminar contacto');
-    }
-    if (this.changes === 0) {
-      return res.status(404).send('Contacto no encontrado');
-    }
-    console.log('Contacto eliminado, filas afectadas:', this.changes);
+  try {
+    await pool.query(
+      "INSERT INTO contacts (user_id, nombre, apellido, email, telefono, empresa, direccion) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [req.user.id, nombre.trim(), apellido.trim(), email || null, telefono || null, empresa || null, direccion || null]
+    );
+    console.log('Contacto creado exitosamente');
     res.redirect('/dashboard');
-  });
+  } catch (err) {
+    console.error('Error al crear contacto:', err);
+    res.status(500).send('Error al crear contacto');
+  }
+});
+
+app.get('/contacts/:id/edit', ensureAuthenticated, async (req, res) => {
+  const contactId = req.params.id;
+  
+  try {
+    const result = await pool.query(
+      "SELECT * FROM contacts WHERE id = $1 AND user_id = $2", 
+      [contactId, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).send('Contacto no encontrado');
+    }
+    
+    res.render('contact-form', { user: req.user, contact: result.rows[0], action: 'editar' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al obtener contacto');
+  }
+});
+
+app.put('/contacts/:id', ensureAuthenticated, async (req, res) => {
+  const contactId = req.params.id;
+  const { nombre, apellido, email, telefono, empresa, direccion } = req.body;
+  
+  // Validación básica
+  if (!nombre || !apellido) {
+    return res.status(400).send('Nombre y apellido son obligatorios');
+  }
+  
+  try {
+    const result = await pool.query(
+      "UPDATE contacts SET nombre = $1, apellido = $2, email = $3, telefono = $4, empresa = $5, direccion = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 AND user_id = $8",
+      [nombre.trim(), apellido.trim(), email || null, telefono || null, empresa || null, direccion || null, contactId, req.user.id]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).send('Contacto no encontrado');
+    }
+    
+    console.log('Contacto actualizado');
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error('Error al actualizar contacto:', err);
+    res.status(500).send('Error al actualizar contacto');
+  }
+});
+
+app.delete('/contacts/:id', ensureAuthenticated, async (req, res) => {
+  const contactId = req.params.id;
+  
+  try {
+    const result = await pool.query(
+      "DELETE FROM contacts WHERE id = $1 AND user_id = $2", 
+      [contactId, req.user.id]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).send('Contacto no encontrado');
+    }
+    
+    console.log('Contacto eliminado');
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error('Error al eliminar contacto:', err);
+    res.status(500).send('Error al eliminar contacto');
+  }
 });
 
 // Manejo de errores
@@ -352,13 +356,10 @@ app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
 
-// Cerrar base de datos al terminar la aplicación
-process.on('SIGINT', () => {
-  db.close((err) => {
-    if (err) {
-      console.error(err.message);
-    }
-    console.log('Conexión a la base de datos cerrada.');
-    process.exit(0);
-  });
+// Manejar cierre graceful de la aplicación
+process.on('SIGINT', async () => {
+  console.log('Cerrando conexión a la base de datos...');
+  await pool.end();
+  console.log('Conexión cerrada.');
+  process.exit(0);
 });
