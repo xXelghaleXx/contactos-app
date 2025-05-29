@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Contactos App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .contact-card {
+            transition: transform 0.2s;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .contact-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        .contact-avatar {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .welcome-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="fas fa-address-book me-2"></i>
+                Contactos App
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" 
+                       role="button" data-bs-toggle="dropdown">
+                        <% if (user.avatar) { %>
+                            <img src="<%= user.avatar %>" alt="Avatar" class="user-avatar me-2">
+                        <% } else { %>
+                            <div class="user-avatar me-2 bg-primary d-flex align-items-center justify-content-center">
+                                <%= user.name.charAt(0).toUpperCase() %>
+                            </div>
+                        <% } %>
+                        <%= user.name %>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <form action="/logout" method="POST" class="d-inline">
+                                <button type="submit" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Sección de bienvenida -->
+        <div class="welcome-section">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2>¡Bienvenido, <%= user.name %>!</h2>
+                    <p class="mb-0">Gestiona tus contactos de manera fácil y organizada</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="text-white-50">
+                        <i class="fas fa-users" style="font-size: 3rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estadísticas y botón de agregar -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">Total de Contactos</h4>
+                                <h2><%= contacts.length %></h2>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-address-card" style="font-size: 3rem; opacity: 0.7;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">Acción Rápida</h4>
+                                <a href="/contacts/new" class="btn btn-light">
+                                    <i class="fas fa-plus me-2"></i>Agregar Contacto
+                                </a>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-plus-circle" style="font-size: 3rem; opacity: 0.7;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de contactos -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Mis Contactos</h3>
+            <a href="/contacts/new" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Nuevo Contacto
+            </a>
+        </div>
+
+        <% if (contacts.length === 0) { %>
+            <div class="text-center py-5">
+                <i class="fas fa-address-book text-muted" style="font-size: 5rem; opacity: 0.3;"></i>
+                <h4 class="text-muted mt-3">No tienes contactos aún</h4>
+                <p class="text-muted">¡Comienza agregando tu primer contacto!</p>
+                <a href="/contacts/new" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>Agregar Primer Contacto
+                </a>
+            </div>
+        <% } else { %>
+            <div class="row">
+                <% contacts.forEach(contact => { %>
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card contact-card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="contact-avatar me-3">
+                                        <%= contact.nombre.charAt(0).toUpperCase() %>
+                                    </div>
+                                    <div>
+                                        <h5 class="card-title mb-1"><%= contact.nombre %> <%= contact.apellido %></h5>
+                                        <% if (contact.empresa) { %>
+                                            <small class="text-muted"><%= contact.empresa %></small>
+                                        <% } %>
+                                    </div>
+                                </div>
+                                
+                                <% if (contact.email) { %>
+                                    <p class="card-text mb-2">
+                                        <i class="fas fa-envelope me-2 text-primary"></i>
+                                        <small><%= contact.email %></small>
+                                    </p>
+                                <% } %>
+                                
+                                <% if (contact.telefono) { %>
+                                    <p class="card-text mb-2">
+                                        <i class="fas fa-phone me-2 text-success"></i>
+                                        <small><%= contact.telefono %></small>
+                                    </p>
+                                <% } %>
+                                
+                                <% if (contact.direccion) { %>
+                                    <p class="card-text mb-3">
+                                        <i class="fas fa-map-marker-alt me-2 text-danger"></i>
+                                        <small><%= contact.direccion %></small>
+                                    </p>
+                                <% } %>
+                                
+                                <div class="d-flex gap-2">
+                                    <a href="/contacts/<%= contact.id %>/edit" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="/contacts/<%= contact.id %>?_method=DELETE" method="POST" 
+                                          class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este contacto?')">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
