@@ -82,7 +82,7 @@ passport.use(new TwitterStrategy({
   consumerKey: process.env.TWITTER_CONSUMER_KEY,
   consumerSecret: process.env.TWITTER_CONSUMER_SECRET,
   callbackURL: process.env.NODE_ENV === 'production' 
-    ? "https://tu-app-name.onrender.com/auth/twitter/callback"
+    ? `${process.env.RENDER_EXTERNAL_URL}/auth/twitter/callback`
     : "http://localhost:3000/auth/twitter/callback"
 }, async (token, tokenSecret, profile, done) => {
   try {
@@ -128,7 +128,7 @@ passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: process.env.NODE_ENV === 'production' 
-    ? "https://tu-app-name.onrender.com/auth/google/callback"
+    ? `${process.env.RENDER_EXTERNAL_URL}/auth/google/callback`
     : "http://localhost:3000/auth/google/callback"
 }, async (accessToken, refreshToken, profile, done) => {
   try {
