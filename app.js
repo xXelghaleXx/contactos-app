@@ -56,12 +56,14 @@ app.use(express.static('public'));
 
 // Configuración de sesiones
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'tu-clave-secreta-aqui',
+  secret: process.env.SESSION_SECRET || 'contactos-app-clave-ultra-segura-abcd1234',
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    secure: 'auto',  // Auto-detecta HTTP/HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas
+    sameSite: 'lax'
   }
 }));
 
